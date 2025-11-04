@@ -47,57 +47,8 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
                   : e.templateKey.toLowerCase().contains(_tpl),
             )
             .toList()
-          ..sort(
-            (a, b) => a.createdAt.compareTo(b.createdAt),
-          ); // เก่า→ใหม่ (อ่านง่าย)
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt)); // เก่า→ใหม่
     return list;
-  }
-
-  // group แท่ง: แต่ละ x มี 2 rods (ก่อนหน้า/ล่าสุด)
-  List<BarChartGroupData> _buildGroups(List<HistoryRecord> recs) {
-    final gs = <BarChartGroupData>[];
-    for (int i = 0; i < recs.length; i++) {
-      final cur = recs[i].zSum;
-      final prev = i > 0 ? recs[i - 1].zSum : 0.0;
-
-      gs.add(
-        BarChartGroupData(
-          x: i,
-          barsSpace: 6,
-          barRods: [
-            // ก่อนหน้า (สีจาง)
-            BarChartRodData(
-              toY: prev,
-              width: 12,
-              color: const Color(0xFFB8AEEA),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            // ล่าสุด (เข้ม)
-            BarChartRodData(
-              toY: cur,
-              width: 12,
-              color: const Color(0xFF7C4DFF),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ],
-        ),
-      );
-    }
-    return gs;
-  }
-
-  ({double minY, double maxY}) _range(List<HistoryRecord> recs) {
-    if (recs.isEmpty) return (minY: -1, maxY: 1);
-    var lo = recs.first.zSum, hi = recs.first.zSum;
-    for (var i = 0; i < recs.length; i++) {
-      final c = recs[i].zSum;
-      final p = i > 0 ? recs[i - 1].zSum : 0.0;
-      lo = [lo, c, p].reduce((a, b) => a < b ? a : b);
-      hi = [hi, c, p].reduce((a, b) => a > b ? a : b);
-    }
-    // padding
-    final pad = (hi - lo).abs() * 0.15 + 1.0;
-    return (minY: (lo - pad), maxY: (hi + pad));
   }
 
   // ---------- UI ----------
@@ -107,7 +58,7 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('กราฟดัชนี (Index)')),
-      body: SafeArea( // ✅ กันล้นชนขอบบน/ล่างของจอ
+      body: SafeArea(
         child: FutureBuilder<List<HistoryRecord>>(
           future: _future,
           builder: (context, snap) {
@@ -128,11 +79,11 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
                 // ===== แถวชิปแบบเลื่อนแนวนอน + ป้าย diff =====
                 Row(
                   children: [
-                    // ✅ ทำชิปให้เลื่อนได้แนวนอน แก้ overflow
+                    // ✅ ชิปเลื่อนแนวนอน
                     Expanded(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        clipBehavior: Clip.none, // เผื่อเงา/เอฟเฟกต์ไม่โดนตัด
+                        clipBehavior: Clip.none,
                         child: Row(
                           children: [
                             _TplChip(
@@ -142,19 +93,19 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
                             ),
                             const SizedBox(width: 8),
                             _TplChip(
-                              label: 'ปลา',
+                              label: _tplTh('fish'),
                               selected: _tpl == 'fish',
                               onTap: () => setState(() => _tpl = 'fish'),
                             ),
                             const SizedBox(width: 8),
                             _TplChip(
-                              label: 'ดินสอ',
+                              label: _tplTh('pencil'),
                               selected: _tpl == 'pencil',
                               onTap: () => setState(() => _tpl = 'pencil'),
                             ),
                             const SizedBox(width: 8),
                             _TplChip(
-                              label: 'ไอศกรีม',
+                              label: _tplTh('icecream'),
                               selected: _tpl == 'icecream',
                               onTap: () => setState(() => _tpl = 'icecream'),
                             ),
@@ -163,19 +114,13 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // ป้าย diff ล่าสุด (ชิดขวา)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: diff >= 0 ? const Color(0xFFE9FFE8) : const Color(0xFFFFE8E8),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        (diff >= 0 ? '▲ ' : '▼ ') + diff.toStringAsFixed(3),
-                        style: TextStyle(
-                          color: diff >= 0 ? const Color(0xFF1B8A3A) : const Color(0xFFB3261E),
-                          fontWeight: FontWeight.w800,
-                        ),
+
+                    // ✅ ป้าย diff ย่อขนาดเอง ป้องกัน overflow
+                    Flexible(
+                      flex: 0,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _DiffPill(value: diff),
                       ),
                     ),
                   ],
@@ -193,7 +138,9 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
                   child: items.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.all(24),
-                          child: Center(child: Text('ยังไม่มีข้อมูลในเทมเพลตนี้')),
+                          child: Center(
+                            child: Text('ยังไม่มีข้อมูลในเทมเพลตนี้'),
+                          ),
                         )
                       : _IndexBarChartWithThumbnails(items: items),
                 ),
@@ -207,14 +154,12 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
 }
 
 // ================================================================
-// Widget กราฟแท่ง + “รูป thumbnail ใต้แท่ง” (วิธีที่ 1)
+// Widget กราฟแท่ง + “รูป thumbnail ใต้แท่ง”
 // ================================================================
-// ===== แทนที่คลาสเดิมทั้งหมดด้วยเวอร์ชันนี้ =====
 class _IndexBarChartWithThumbnails extends StatelessWidget {
   const _IndexBarChartWithThumbnails({required this.items});
   final List<HistoryRecord> items;
 
-  // ช่วยคุมความหนาแน่น
   int _thumbStep() {
     // อยากได้รูปไม่เกิน ~10 รูปต่อจอ
     final step = (items.length / 10).ceil();
@@ -229,7 +174,7 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
       gs.add(
         BarChartGroupData(
           x: i,
-          barsSpace: 10, // ➜ เว้นช่องมากขึ้น
+          barsSpace: 10,
           barRods: [
             BarChartRodData(
               toY: prev,
@@ -255,9 +200,7 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
     for (int i = 0; i < items.length; i++) {
       final c = items[i].zSum;
       final p = i > 0 ? items[i - 1].zSum : 0.0;
-      if (i == 0) {
-        lo = hi = c;
-      }
+      if (i == 0) lo = hi = c;
       lo = [lo, c, p].reduce((a, b) => a < b ? a : b);
       hi = [hi, c, p].reduce((a, b) => a > b ? a : b);
     }
@@ -297,7 +240,6 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
         // ===== ทำให้เลื่อนแนวนอนได้ =====
         LayoutBuilder(
           builder: (context, c) {
-            // กว้างขั้นต่ำต่อกลุ่ม ~40-50px
             final targetWidth = (items.length * 48).toDouble();
             final chartWidth = targetWidth < c.maxWidth
                 ? c.maxWidth
@@ -308,7 +250,7 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
               child: SizedBox(
                 width: chartWidth,
                 child: AspectRatio(
-                  aspectRatio: 16 / 9, // เตี้ยลงเล็กน้อยเพื่อเหลือที่ใต้กราฟ
+                  aspectRatio: 16 / 9,
                   child: BarChart(
                     BarChartData(
                       minY: r.minY,
@@ -350,7 +292,6 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
                               }
                               // แสดงรูปเฉพาะทุก step
                               if (i % step != 0 && i != items.length - 1) {
-                                // บรรทัดวันที่บาง ๆ แทน
                                 final dt =
                                     '${items[i].createdAt.month}/${items[i].createdAt.day}';
                                 return Padding(
@@ -453,7 +394,34 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
   );
 }
 
-// แผ่นล่างแสดงรูปใหญ่ + ค่ารายละเอียด
+// ---------- ป้าย Diff ย่อได้ เพื่อกัน overflow ----------
+class _DiffPill extends StatelessWidget {
+  const _DiffPill({required this.value});
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final up = value >= 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: up ? const Color(0xFFE9FFE8) : const Color(0xFFFFE8E8),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        (up ? '▲ ' : '▼ ') + value.toStringAsFixed(2),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: up ? const Color(0xFF1B8A3A) : const Color(0xFFB3261E),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- แผ่นล่างแสดงรูปใหญ่ + ค่ารายละเอียด ----------
 class _PreviewSheet extends StatelessWidget {
   const _PreviewSheet({required this.rec});
   final HistoryRecord rec;

@@ -66,8 +66,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
     if (_sort == 'name') {
       list.sort((a, b) => (a['name'] ?? '').compareTo(b['name'] ?? ''));
     } else {
-      // recent: อันล่าสุดอยู่บนสุด (ตามที่ _repo คืนลำดับเพิ่มเข้ามา)
-      list = list.reversed.toList();
+      list = list.reversed.toList(); // recent first
     }
     return list;
   }
@@ -88,7 +87,6 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
     if (edit == null) {
       await _repo.add(name: result['name'], age: result['age']);
     } else {
-      // โค้ดง่าย: ลบแล้วเพิ่มใหม่ (ถ้า _repo มี update() ใช้แทนได้)
       await _repo.remove(edit['id'] as String);
       await _repo.add(name: result['name'], age: result['age']);
     }
@@ -154,9 +152,8 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
     final cs = Theme.of(context).colorScheme;
 
     final screenH = MediaQuery.of(context).size.height;
-    final double cardHeight = screenH < 700
-        ? 262
-        : (screenH < 820 ? 276 : 288); // เผื่อส่วนกราฟ
+    // เพิ่มความสูงการ์ดอีก ~12-14px เพื่อกัน overflow บนจอเตี้ย/ตัวหนังสือใหญ่
+    final double cardHeight = screenH < 700 ? 300 : (screenH < 820 ? 312 : 320);
     final bottomInsets = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -467,7 +464,7 @@ class _ColoredChoiceChip extends StatelessWidget {
   }
 }
 
-// ===== การ์ดแบบ Grid (fix overflow) + มินิกราฟ =====
+// ===== การ์ดแบบ Grid (แก้ overflow) + มินิกราฟ =====
 class _GridProfileCard extends StatelessWidget {
   const _GridProfileCard({
     required this.name,
@@ -545,29 +542,29 @@ class _GridProfileCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                // Avatar
+                // Avatar (ลดขนาดเล็กน้อย)
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 54,
+                  height: 54,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: avatarGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     initials,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
                 // ชื่อ (1 บรรทัด, ellipsis)
                 Text(
@@ -580,12 +577,12 @@ class _GridProfileCard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
 
                 // ป้ายอายุ
                 _AgeBadge(age: age, bg: badgeBg, fg: badgeFg),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
 
                 // ===== มินิกราฟ Index (zSum) + Δ =====
                 FutureBuilder<_TrendData>(
@@ -608,8 +605,9 @@ class _GridProfileCard extends StatelessWidget {
 
                     return Column(
                       children: [
+                        // กราฟเตี้ยลงนิดเพื่อกัน overflow
                         SizedBox(
-                          height: 40,
+                          height: 30,
                           child: _Sparkline(
                             points: data.points,
                             stroke: stroke,
@@ -617,15 +615,19 @@ class _GridProfileCard extends StatelessWidget {
                             guideColor: const Color(0x11000000),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        const SizedBox(height: 4),
+                        // ใช้ Wrap เพื่อกันแถวล้นขวา
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             if (latest != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
-                                  vertical: 4,
+                                  vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEFF7FF),
@@ -642,7 +644,6 @@ class _GridProfileCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            const SizedBox(width: 8),
                             if (latest != null && prev != null)
                               _DeltaBadge(value: delta),
                           ],
@@ -652,17 +653,18 @@ class _GridProfileCard extends StatelessWidget {
                   },
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 6),
 
-                // แถวปุ่มล่าง
+                // แถวปุ่มล่าง (พอดีการ์ด)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton.filledTonal(
                       tooltip: 'ประวัติ',
                       onPressed: onHistory,
-                      icon: const Icon(Icons.timeline_rounded),
+                      icon: const Icon(Icons.timeline_rounded, size: 20),
                       style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(10),
                         backgroundColor: const Color(0xFFEFF7FF),
                         foregroundColor: const Color(0xFF0056B3),
                       ),
@@ -746,8 +748,10 @@ class _DeltaBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: color),
+          const SizedBox(width: 2),
           Text(
             value >= 0
                 ? '+${value.toStringAsFixed(2)}'
@@ -862,7 +866,7 @@ class _AgeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
