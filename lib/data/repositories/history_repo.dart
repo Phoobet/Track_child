@@ -20,8 +20,9 @@ class HistoryRepo {
 
   /// โฟลเดอร์ของโปรไฟล์: <base>/<profileKey>/
   Future<Directory> _ensureProfileDir(String profileKey) async {
+    final key = (profileKey.trim().isEmpty) ? 'anonymous' : profileKey.trim();
     final base = await _baseDir();
-    final dir = Directory('${base.path}/$profileKey');
+    final dir = Directory('${base.path}/$key');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
   }
@@ -38,18 +39,40 @@ class HistoryRepo {
     return file.path;
   }
 
+  /// NEW: แทนที่ NaN/Infinity → 0.0 ใน Map ก่อนเขียนไฟล์
+  Map<String, dynamic> _sanitize(Map<String, dynamic> m) {
+    final out = <String, dynamic>{};
+    m.forEach((k, v) {
+      if (v is double) {
+        out[k] = (v.isNaN || v.isInfinite) ? 0.0 : v;
+      } else if (v is Map) {
+        out[k] = _sanitize(v.cast<String, dynamic>());
+      } else if (v is List) {
+        out[k] = v.map((e) {
+          if (e is double) return (e.isNaN || e.isInfinite) ? 0.0 : e;
+          if (e is Map) return _sanitize(e.cast<String, dynamic>());
+          return e;
+        }).toList();
+      } else {
+        out[k] = v;
+      }
+    });
+    return out;
+  }
+
   /// เพิ่มประวัติ (เขียนเป็นไฟล์ .json ชื่อ = id)
   Future<void> add(String profileKey, HistoryRecord record) async {
     final dir = await _ensureProfileDir(profileKey);
     final file = File('${dir.path}/${record.id}.json');
 
-    // ให้แน่ใจว่าเก็บ profileKey ลงในไฟล์ด้วย
     final map = record.toMap();
     map['profileKey'] = record.profileKey.isNotEmpty
         ? record.profileKey
         : profileKey;
 
-    await file.writeAsString(jsonEncode(map), flush: true);
+    final safeMap = _sanitize(map);
+    final jsonText = const JsonEncoder.withIndent('  ').convert(safeMap);
+    await file.writeAsString(jsonText, flush: true);
   }
 
   /// อ่านรายการของโปรไฟล์ทั้งหมด (ล่าสุดมาก่อน)

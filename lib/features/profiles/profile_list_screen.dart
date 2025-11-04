@@ -1,12 +1,12 @@
 // lib/features/profiles/profile_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:characters/characters.dart';
 
 import '../../data/repositories/cohort_repo.dart';
 import '../templates/template_picker_screen.dart';
 import '../../routes.dart';
 
-// ⭐ เพิ่ม: ใช้ดึงประวัติมาทำกราฟย่อ
-import '../../data/models/history_record.dart';
+// ใช้ดึงประวัติมาทำกราฟย่อ (zSum trend)
 import '../../data/repositories/history_repo.dart';
 
 class ProfileListScreen extends StatefulWidget {
@@ -39,6 +39,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
 
   Future<void> _load() async {
     final data = await _repo.getAll();
+    if (!mounted) return;
     setState(() {
       _items = data;
       _loading = false;
@@ -65,7 +66,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
     if (_sort == 'name') {
       list.sort((a, b) => (a['name'] ?? '').compareTo(b['name'] ?? ''));
     } else {
-      // recent: อันล่าสุดอยู่บนสุด
+      // recent: อันล่าสุดอยู่บนสุด (ตามที่ _repo คืนลำดับเพิ่มเข้ามา)
       list = list.reversed.toList();
     }
     return list;
@@ -87,7 +88,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
     if (edit == null) {
       await _repo.add(name: result['name'], age: result['age']);
     } else {
-      // โค้ดง่ายๆ: ลบแล้วเพิ่มใหม่ (ถ้า _repo มี update() ใช้แทนได้)
+      // โค้ดง่าย: ลบแล้วเพิ่มใหม่ (ถ้า _repo มี update() ใช้แทนได้)
       await _repo.remove(edit['id'] as String);
       await _repo.add(name: result['name'], age: result['age']);
     }
@@ -152,11 +153,10 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // ความสูงการ์ดแบบคงที่/ยืดหยุ่นเล็กน้อย (กันล้นแนวตั้งทุกจอ)
     final screenH = MediaQuery.of(context).size.height;
     final double cardHeight = screenH < 700
-        ? 250
-        : (screenH < 820 ? 264 : 276); // ⤴ สูงขึ้นนิดเผื่อกราฟ
+        ? 262
+        : (screenH < 820 ? 276 : 288); // เผื่อส่วนกราฟ
     final bottomInsets = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -169,84 +169,103 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : RefreshIndicator.adaptive(
               onRefresh: _load,
               child: CustomScrollView(
                 slivers: [
                   // ---------- SliverAppBar + Search ----------
                   SliverAppBar(
                     pinned: true,
-                    expandedHeight: 118,
+                    stretch: true,
+                    expandedHeight: 140,
                     title: const Text('เลือกโปรไฟล์เด็ก'),
                     flexibleSpace: FlexibleSpaceBar(
+                      stretchModes: const [
+                        StretchMode.zoomBackground,
+                        StretchMode.blurBackground,
+                      ],
                       background: SafeArea(
                         bottom: false,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 56, 16, 8),
-                          child: TextField(
-                            controller: _searchCtrl,
-                            onChanged: (_) => setState(() {}),
-                            textInputAction: TextInputAction.search,
-                            onSubmitted: (_) =>
-                                FocusScope.of(context).unfocus(),
-                            decoration: InputDecoration(
-                              hintText: 'ค้นหาชื่อ…',
-                              prefixIcon: const Icon(Icons.search_rounded),
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_searchCtrl.text.isNotEmpty)
-                                    IconButton(
-                                      tooltip: 'ล้าง',
-                                      onPressed: () {
-                                        _searchCtrl.clear();
-                                        setState(() {});
-                                      },
-                                      icon: const Icon(Icons.clear_rounded),
-                                    ),
-                                  PopupMenuButton<String>(
-                                    tooltip: 'จัดเรียง',
-                                    onSelected: (v) =>
-                                        setState(() => _sort = v),
-                                    itemBuilder: (_) => [
-                                      CheckedPopupMenuItem(
-                                        checked: _sort == 'recent',
-                                        value: 'recent',
-                                        child: const Text('ล่าสุดอยู่บน'),
+                          padding: const EdgeInsets.fromLTRB(16, 64, 16, 12),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xF2EFF7FF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFB3E0FF),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              onChanged: (_) => setState(() {}),
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: (_) =>
+                                  FocusScope.of(context).unfocus(),
+                              decoration: InputDecoration(
+                                hintText: 'ค้นหาชื่อ…',
+                                prefixIcon: const Icon(Icons.search_rounded),
+                                suffixIcon: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_searchCtrl.text.isNotEmpty)
+                                      IconButton(
+                                        tooltip: 'ล้าง',
+                                        onPressed: () {
+                                          _searchCtrl.clear();
+                                          setState(() {});
+                                        },
+                                        icon: const Icon(Icons.clear_rounded),
                                       ),
-                                      CheckedPopupMenuItem(
-                                        checked: _sort == 'name',
-                                        value: 'name',
-                                        child: const Text('เรียงตามชื่อ ก-ฮ'),
+                                    PopupMenuButton<String>(
+                                      tooltip: 'จัดเรียง',
+                                      onSelected: (v) =>
+                                          setState(() => _sort = v),
+                                      itemBuilder: (_) => [
+                                        CheckedPopupMenuItem(
+                                          checked: _sort == 'recent',
+                                          value: 'recent',
+                                          child: const Text('ล่าสุดอยู่บน'),
+                                        ),
+                                        CheckedPopupMenuItem(
+                                          checked: _sort == 'name',
+                                          value: 'name',
+                                          child: const Text('เรียงตามชื่อ ก-ฮ'),
+                                        ),
+                                      ],
+                                      child: const Padding(
+                                        padding: EdgeInsets.only(right: 6),
+                                        child: Icon(Icons.sort_rounded),
                                       ),
-                                    ],
-                                    child: const Padding(
-                                      padding: EdgeInsets.only(right: 6),
-                                      child: Icon(Icons.sort_rounded),
                                     ),
+                                  ],
+                                ),
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFB3E0FF),
                                   ),
-                                ],
-                              ),
-                              isDense: true,
-                              filled: true,
-                              fillColor: const Color(0xFFEFF7FF),
-                              border: OutlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFB3E0FF),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFB3E0FF),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFB3E0FF),
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF7C4DFF),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF7C4DFF),
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
                           ),
@@ -283,7 +302,8 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                             onTap: () => setState(() => _ageFilter = 5),
                           ),
                           // ตัวนับจำนวนทั้งหมด
-                          Container(
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 6,
@@ -326,7 +346,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                       sliver: SliverGrid.builder(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          mainAxisExtent: cardHeight, // ✅ กันล้นแนวตั้ง
+                          mainAxisExtent: cardHeight, // กันล้นแนวตั้ง
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                         ),
@@ -335,37 +355,42 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                           final it = _visible[i];
                           final idOrKey = _profileKeyOf(it);
 
-                          return Dismissible(
-                            key: ValueKey(idOrKey),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (_) async {
-                              await _confirmDelete(it);
-                              return false;
-                            },
-                            background: _deleteBg(
-                              cs.errorContainer,
-                              cs.onErrorContainer,
-                            ),
-                            child: _GridProfileCard(
-                              name:
-                                  (it['name'] as String?)?.trim().isEmpty ==
-                                      true
-                                  ? 'ไม่ทราบชื่อ'
-                                  : it['name'] as String,
-                              age: (it['age'] as int?) ?? 0,
-                              onOpen: () => _openTemplates(it),
-                              onEdit: () => _openEditor(edit: it),
-                              onDelete: () => _confirmDelete(it),
-                              onHistory: () => _openHistory(it),
-                              avatarGradient: _avatarGradient(
-                                (it['age'] as int?) ?? 0,
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Dismissible(
+                              key: ValueKey(idOrKey),
+                              direction: DismissDirection.endToStart,
+                              confirmDismiss: (_) async {
+                                await _confirmDelete(it);
+                                return false;
+                              },
+                              background: _deleteBg(
+                                cs.errorContainer,
+                                cs.onErrorContainer,
                               ),
-                              cardBorder: _cardBorder((it['age'] as int?) ?? 0),
-                              badgeBg: _badgeBg((it['age'] as int?) ?? 0),
-                              badgeFg: _badgeFg((it['age'] as int?) ?? 0),
+                              child: _GridProfileCard(
+                                name:
+                                    (it['name'] as String?)?.trim().isEmpty ==
+                                        true
+                                    ? 'ไม่ทราบชื่อ'
+                                    : it['name'] as String,
+                                age: (it['age'] as int?) ?? 0,
+                                onOpen: () => _openTemplates(it),
+                                onEdit: () => _openEditor(edit: it),
+                                onDelete: () => _confirmDelete(it),
+                                onHistory: () => _openHistory(it),
+                                avatarGradient: _avatarGradient(
+                                  (it['age'] as int?) ?? 0,
+                                ),
+                                cardBorder: _cardBorder(
+                                  (it['age'] as int?) ?? 0,
+                                ),
+                                badgeBg: _badgeBg((it['age'] as int?) ?? 0),
+                                badgeFg: _badgeFg((it['age'] as int?) ?? 0),
 
-                              // ⭐ ใหม่: สำหรับโหลดกราฟย่อ
-                              profileKey: idOrKey,
+                                // โหลดกราฟย่อ
+                                profileKey: idOrKey,
+                              ),
                             ),
                           );
                         },
@@ -380,10 +405,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
   Widget _deleteBg(Color bg, Color fg) => Container(
     alignment: Alignment.centerRight,
     padding: const EdgeInsets.symmetric(horizontal: 20),
-    decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(16),
-    ),
+    color: bg,
     child: Icon(Icons.delete_rounded, color: fg),
   );
 }
@@ -445,7 +467,7 @@ class _ColoredChoiceChip extends StatelessWidget {
   }
 }
 
-// ===== การ์ดแบบ Grid (fix overflow) + สปาร์คไลน์ =====
+// ===== การ์ดแบบ Grid (fix overflow) + มินิกราฟ =====
 class _GridProfileCard extends StatelessWidget {
   const _GridProfileCard({
     required this.name,
@@ -563,59 +585,67 @@ class _GridProfileCard extends StatelessWidget {
                 // ป้ายอายุ
                 _AgeBadge(age: age, bg: badgeBg, fg: badgeFg),
 
-                // ===== มินิกราฟ Index (zSum) + Δ =====
                 const SizedBox(height: 10),
+
+                // ===== มินิกราฟ Index (zSum) + Δ =====
                 FutureBuilder<_TrendData>(
                   future: _loadTrend(),
                   builder: (context, snap) {
-                    if (snap.connectionState != ConnectionState.done) {
-                      return const SizedBox(
-                        height: 50,
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
-                    final data = snap.data ?? _TrendData.empty();
+                    final data = snap.hasData ? snap.data! : _TrendData.empty();
                     final latest = data.latest;
                     final prev = data.previous;
                     final delta = (latest != null && prev != null)
-                        ? (latest - prev)
-                        : null;
+                        ? latest - prev
+                        : 0.0;
+
+                    final up = delta >= 0;
+                    final stroke = up
+                        ? const Color(0xFF1B8C3B)
+                        : const Color(0xFFB82E2E);
+                    final fill =
+                        (up ? const Color(0x331B8C3B) : const Color(0x33B82E2E))
+                            .withOpacity(0.25);
 
                     return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Index (z)',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: theme.hintColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const Spacer(),
-                            if (latest != null)
-                              Text(
-                                latest.toStringAsFixed(2),
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            const SizedBox(width: 6),
-                            if (delta != null) _DeltaBadge(value: delta),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
                         SizedBox(
-                          height: 34,
+                          height: 40,
                           child: _Sparkline(
                             points: data.points,
-                            stroke: const Color(0xFF5E8BFF),
-                            fill: const Color(0x335E8BFF),
-                            guideColor: theme.dividerColor,
+                            stroke: stroke,
+                            fill: fill,
+                            guideColor: const Color(0x11000000),
                           ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (latest != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF7FF),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: const Color(0xFFB3E0FF),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Index ${latest.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF0056B3),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            if (latest != null && prev != null)
+                              _DeltaBadge(value: delta),
+                          ],
                         ),
                       ],
                     );

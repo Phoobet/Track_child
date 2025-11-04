@@ -67,12 +67,8 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
 
   // ---------------- Helpers ----------------
   String _fmtDate(DateTime d) {
-    final y = d.year.toString().padLeft(4, '0');
-    final m = d.month.toString().padLeft(2, '0');
-    final dd = d.day.toString().padLeft(2, '0');
-    final hh = d.hour.toString().padLeft(2, '0');
-    final mm = d.minute.toString().padLeft(2, '0');
-    return '$y-$m-$dd  $hh:$mm';
+    String two(int x) => x.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}  ${two(d.hour)}:${two(d.minute)}';
   }
 
   Widget _thumb(String? path) {
@@ -176,7 +172,6 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
         s.contains('within') ||
         s.contains('normal') ||
         s.contains('standard');
-
     if (hi && very) return 5;
     if (hi) return 4;
     if (low && very) return 1;
@@ -189,27 +184,18 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
     final stars = _starsFromLevel(level);
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        5,
-        (i) => Icon(
-          i < stars ? Icons.star_rounded : Icons.star_border_rounded,
-          size: 18,
-          color: i < stars ? Colors.amber : Colors.grey.shade400,
-        ),
-      ),
+      children: List.generate(5, (i) {
+        final filled = i < stars;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1.5),
+          child: Icon(
+            filled ? Icons.star_rounded : Icons.star_border_rounded,
+            size: 18,
+            color: filled ? Colors.amber : Colors.grey.shade400,
+          ),
+        );
+      }),
     );
-  }
-
-  Color _levelColor(String level, ColorScheme cs) {
-    final n = _normalizeLevel(level);
-    switch (n) {
-      case 'low':
-        return const Color(0xFFFFE2E2);
-      case 'high':
-        return const Color(0xFFE6FFDA);
-      default:
-        return cs.secondaryContainer;
-    }
   }
 
   // ---------------- UI ----------------
@@ -283,7 +269,11 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, i) {
                       final r = items[i];
-                      final idx = r.zSum.toStringAsFixed(3);
+
+                      // ป้าย Index ใช้ "raw index" จะสอดคล้องกับหน้าผล (ถ้ามีการคำนวณต่างจาก zSum แก้ตรงนี้ได้)
+                      final indexRaw = (-r.h) + r.c + (-r.blank) + (-r.cotl);
+                      final idx = indexRaw.toStringAsFixed(3);
+
                       final title = _templateLabel(r.templateKey);
                       final subtitle =
                           '${_fmtDate(r.createdAt)}\n'
@@ -390,29 +380,7 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     _starRow(r.level),
-                                    const SizedBox(height: 4),
-                                    // Level badge สีตามระดับ
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _levelColor(r.level, cs),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        r.level,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
+                                    // ❌ เอาป้ายข้อความ/บักเก็ตระดับใต้ดาว “ออก” ตามที่ขอ
                                   ],
                                 ),
                               ],
@@ -432,7 +400,7 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
   }
 }
 
-/// แถบตัวกรองแบบสวย: Template • Level • Sort + ตัวนับ
+/// แถบตัวกรองแบบสวย: Template • Level • Sort
 class _FancyFilterBar extends StatelessWidget {
   const _FancyFilterBar({
     required this.tpl,
@@ -474,7 +442,7 @@ class _FancyFilterBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // แถวบน: Template + Sort + Counter
+          // แถวบน: Template + Sort
           Row(
             children: [
               Expanded(
