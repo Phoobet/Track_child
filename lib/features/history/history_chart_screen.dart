@@ -74,12 +74,13 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
             final diff = latest - prev;
 
             return ListView(
+              shrinkWrap: true,
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
               children: [
                 // ===== แถวชิปแบบเลื่อนแนวนอน + ป้าย diff =====
                 Row(
                   children: [
-                    // ✅ ชิปเลื่อนแนวนอน
+                    // ชิปเลื่อนแนวนอน
                     Expanded(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
@@ -114,8 +115,7 @@ class _HistoryChartScreenState extends State<HistoryChartScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-
-                    // ✅ ป้าย diff ย่อขนาดเอง ป้องกัน overflow
+                    // ป้าย diff ย่อได้ ป้องกัน overflow
                     Flexible(
                       flex: 0,
                       child: FittedBox(
@@ -214,171 +214,166 @@ class _IndexBarChartWithThumbnails extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final step = _thumbStep();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // legend
-        Row(
-          children: [
-            _legendDot(const Color(0xFF7C4DFF)),
-            const SizedBox(width: 6),
-            const Text('ล่าสุด'),
-            const SizedBox(width: 14),
-            _legendDot(const Color(0xFFB8AEEA)),
-            const SizedBox(width: 6),
-            const Text('ก่อนหน้า'),
-            const Spacer(),
-            Text(
-              'ล่าสุด: ${items.last.zSum.toStringAsFixed(3)}   '
-              'ก่อนหน้า: ${items.length > 1 ? items[items.length - 2].zSum.toStringAsFixed(3) : "-"}',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8), // กันล้นขอบล่าง
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // legend
+          Row(
+            children: [
+              _legendDot(const Color(0xFF7C4DFF)),
+              const SizedBox(width: 6),
+              const Text('ล่าสุด'),
+              const SizedBox(width: 14),
+              _legendDot(const Color(0xFFB8AEEA)),
+              const SizedBox(width: 6),
+              const Text('ก่อนหน้า'),
+              const Spacer(),
+              Text(
+                'ล่าสุด: ${items.last.zSum.toStringAsFixed(3)}   '
+                'ก่อนหน้า: ${items.length > 1 ? items[items.length - 2].zSum.toStringAsFixed(3) : "-"}',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
 
-        // ===== ทำให้เลื่อนแนวนอนได้ =====
-        LayoutBuilder(
-          builder: (context, c) {
-            final targetWidth = (items.length * 48).toDouble();
-            final chartWidth = targetWidth < c.maxWidth
-                ? c.maxWidth
-                : targetWidth;
+          // ทำให้เลื่อนแนวนอนได้
+          LayoutBuilder(
+            builder: (context, c) {
+              // ความกว้างขั้นต่ำต่อกลุ่ม ~48px ป้องกัน RIGHT overflow
+              final targetWidth = (items.length * 48).toDouble();
+              final chartWidth = targetWidth < c.maxWidth
+                  ? c.maxWidth
+                  : targetWidth;
 
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: chartWidth,
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: BarChart(
-                    BarChartData(
-                      minY: r.minY,
-                      maxY: r.maxY,
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                        horizontalInterval: (r.maxY - r.minY) / 6,
-                        getDrawingHorizontalLine: (v) => FlLine(
-                          color: cs.outlineVariant.withOpacity(.5),
-                          strokeWidth: 1,
-                        ),
-                      ),
-                      titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 36,
-                            getTitlesWidget: (v, meta) => Text(
-                              v.toStringAsFixed(1),
-                              style: const TextStyle(fontSize: 10),
-                            ),
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: chartWidth,
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: BarChart(
+                      BarChartData(
+                        minY: r.minY,
+                        maxY: r.maxY,
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: (r.maxY - r.minY) / 6,
+                          getDrawingHorizontalLine: (v) => FlLine(
+                            color: cs.outlineVariant.withOpacity(.5),
+                            strokeWidth: 1,
                           ),
                         ),
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 56, // เผื่อที่รูปเล็ก
-                            getTitlesWidget: (val, meta) {
-                              final i = val.toInt();
-                              if (i < 0 || i >= items.length) {
-                                return const SizedBox.shrink();
-                              }
-                              // แสดงรูปเฉพาะทุก step
-                              if (i % step != 0 && i != items.length - 1) {
-                                final dt =
-                                    '${items[i].createdAt.month}/${items[i].createdAt.day}';
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    dt,
-                                    style: const TextStyle(fontSize: 9),
-                                  ),
-                                );
-                              }
-                              final rec = items[i];
-                              final dt =
-                                  '${rec.createdAt.month}/${rec.createdAt.day}';
-                              final p = rec.imagePath;
-                              final has =
-                                  p != null &&
-                                  p.isNotEmpty &&
-                                  File(p).existsSync();
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: has
-                                            ? Image.file(
-                                                File(p!),
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    _imgPh(),
-                                              )
-                                            : _imgPh(),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      dt,
-                                      style: const TextStyle(fontSize: 9),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      borderData: FlBorderData(
-                        show: true,
-                        border: Border.all(color: cs.outlineVariant),
-                      ),
-                      barGroups: _groups(),
-
-                      // ===== แตะแท่งเพื่อดูรูปใหญ่ + รายละเอียด =====
-                      barTouchData: BarTouchData(
-                        enabled: true,
-                        handleBuiltInTouches: false,
-                        touchCallback: (event, resp) {
-                          if (!event.isInterestedForInteractions ||
-                              resp == null)
-                            return;
-                          final i = resp.spot?.touchedBarGroupIndex ?? -1;
-                          if (i < 0 || i >= items.length) return;
-                          final rec = items[i];
-                          showModalBottomSheet(
-                            context: context,
-                            showDragHandle: true,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(20),
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 36,
+                              getTitlesWidget: (v, meta) => Text(
+                                v.toStringAsFixed(1),
+                                style: const TextStyle(fontSize: 10),
                               ),
                             ),
-                            builder: (_) => _PreviewSheet(rec: rec),
-                          );
-                        },
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              // เผื่อที่ให้รูป + วันที่ + textScale สูง
+                              reservedSize: 64,
+                              getTitlesWidget: (val, meta) {
+                                final i = val.toInt();
+                                if (i < 0 || i >= items.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                final rec = items[i];
+                                final dt =
+                                    '${rec.createdAt.month}/${rec.createdAt.day}';
+                                final p = rec.imagePath;
+                                final has =
+                                    p != null &&
+                                    p.isNotEmpty &&
+                                    File(p).existsSync();
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          child: has
+                                              ? Image.file(
+                                                  File(p!),
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      _imgPh(),
+                                                )
+                                              : _imgPh(),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        dt,
+                                        style: const TextStyle(fontSize: 9),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(
+                          show: true,
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        barGroups: _groups(),
+
+                        // แตะแท่ง เพื่อดูรูปใหญ่ + รายละเอียด
+                        barTouchData: BarTouchData(
+                          enabled: true,
+                          handleBuiltInTouches: false,
+                          touchCallback: (event, resp) {
+                            if (!event.isInterestedForInteractions ||
+                                resp == null)
+                              return;
+                            final i = resp.spot?.touchedBarGroupIndex ?? -1;
+                            if (i < 0 || i >= items.length) return;
+                            final rec = items[i];
+                            showModalBottomSheet(
+                              context: context,
+                              showDragHandle: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
+                              ),
+                              builder: (_) => _PreviewSheet(rec: rec),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
-        ),
-      ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
